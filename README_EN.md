@@ -89,6 +89,10 @@ $ npm run watch
 $ npm test
 ```
 
+
+[Download](https://auto-i18n-websites.vercel.app/download)
+
+
 ---
 
 ## Advanced Usage
@@ -167,6 +171,7 @@ Discuss issues or ideas via GitHub Issues or join our Discord.
 
 - Issues: <https://github.com/kamjin3086/AutoI18n-For-NextJs-Desktop/issues>
 - Email:  kamjindev@gmail.com
+- Website: https://auto-i18n-websites.vercel.app
 
 ---
 

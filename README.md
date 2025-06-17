@@ -89,6 +89,8 @@ $ npm run watch
 $ npm test
 ```
 
+[下载](https://auto-i18n-websites.vercel.app/download)
+
 ---
 
 ## 进阶使用
@@ -166,8 +168,8 @@ flowchart TD
 ## 社区与支持
 
 - Issues: <https://github.com/kamjin3086/AutoI18n-For-NextJs-Desktop/issues>
-- Email:  kamjindev@gmail.com
-
+- 邮箱:  kamjindev@gmail.com
+- 网站: https://auto-i18n-websites.vercel.app
 ---
 
 ## License
