@@ -1,0 +1,202 @@
+name: Build and Upload Electron App to Cloudflare R2
+on:
+  workflow_dispatch:
+
+env:
+  R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+  R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  R2_BUCKET: i18n
+
+  # 需要创建release的仓库的密钥
+  TARGET_REPO_PAT: ${{ secrets.TARGET_REPO_PAT }}
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ windows-latest, macos-latest]
+        node-version: [ 20.11.1 ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Cache Node.js modules
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install dependencies
+        run: |
+          npm install -g yarn
+          yarn install
+        timeout-minutes: 20
+
+      - name: Del Dist Dir If Exist
+        if: matrix.os == 'windows-latest'
+        run: |
+          Remove-Item -Recurse -Force dist\* -ErrorAction SilentlyContinue
+
+      - name: Build Electron App
+        run: |
+          yarn dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      #过滤需要的文件
+      - name: Filter Windows build artifacts
+        if: matrix.os == 'windows-latest'
+        run: |
+          mkdir filtered
+          mv dist/*.exe filtered/
+          mv dist/*.blockmap filtered/
+          mv dist/latest.yml filtered/
+          Remove-Item -Recurse -Force dist\*
+          mv filtered/* dist/
+
+      #过滤需要的文件
+      - name: Filter macOS build artifacts
+        if: matrix.os == 'macos-latest'
+        run: |
+          mkdir filtered
+          mv dist/*.dmg filtered/
+          mv dist/*.blockmap filtered/
+          mv dist/latest-mac.yml filtered/
+          rm -rf dist/*
+          mv filtered/* dist/
+
+      #      # 删除旧的工件，达到节省的目的
+      #      - name: Delete Old Artifacts
+      #        uses: actions/github-script@v6
+      #        id: artifact
+      #        with:
+      #          script: |
+      #            const res = await github.rest.actions.listArtifactsForRepo({
+      #            owner: context.repo.owner,
+      #            repo: context.repo.repo,
+      #            })
+      #
+      #            res.data.artifacts
+      #            .forEach(({ id }) => {
+      #            github.rest.actions.deleteArtifact({
+      #            owner: context.repo.owner,
+      #            repo: context.repo.repo,
+      #            artifact_id: id,
+      #            })
+      #            })
+      #
+      #      #上传工件供下载和其他用途
+      #      - name: Upload Artifacts
+      #        uses: actions/upload-artifact@v2
+      #        with:
+      #          name: electron-app-${{ matrix.os }}
+      #          path: dist/*
+
+      #      - name: Install wrangler
+      #        run: npm uninstall -g @cloudflare/wrangler && npm install -g wrangler
+
+      #      - name: Upload to Cloudflare R2
+      #        env:
+      #          R2_ACCOUNT_ID: ${{ env.R2_ACCOUNT_ID }}
+      #          R2_ACCESS_KEY_ID: ${{ env.R2_ACCESS_KEY_ID }}
+      #          R2_SECRET_ACCESS_KEY: ${{ env.R2_SECRET_ACCESS_KEY }}
+      #          CLOUDFLARE_API_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN }}
+      #        run: |
+      #          for file in dist/*; do
+      #            wrangler r2 object put autoi18n/$(basename $file) --file $file
+      #          done
+
+      # 包上传到r2
+#      - name: R2 Directory Upload
+#        uses: ryand56/r2-upload-action@latest
+#        with:
+#          r2-account-id: ${{ env.R2_ACCOUNT_ID }}
+#          r2-access-key-id: ${{ env.R2_ACCESS_KEY_ID }}
+#          r2-secret-access-key: ${{ env.R2_SECRET_ACCESS_KEY }}
+#          r2-bucket: ${{ env.R2_BUCKET }}
+#          source-dir: dist
+#          destination-dir: ./releases/
+#
+
+        # 包上传到r2
+      - name: R2 Directory Upload
+        uses: willfurstenau/r2-dir-upload@main
+        with:
+          accountid: ${{ env.R2_ACCOUNT_ID }}
+          accesskeyid: ${{ env.R2_ACCESS_KEY_ID }}
+          secretaccesskey: ${{ env.R2_SECRET_ACCESS_KEY }}
+          bucket: ${{ env.R2_BUCKET }}
+          source: ${{ github.workspace }}/dist
+          destination: /releases/
+
+
+          # Extract version and release notes for Windows
+#      - name: Extract version and release notes
+#        if: matrix.os == 'windows-latest'
+#        id: extract_info
+#        shell: pwsh
+#        run: |
+#          $version = (yq e '.version' dist/latest.yml)
+#          $release_notes = (yq e '.releaseNotes' dist/latest.yml)
+#          echo "version=$version" >> $env:GITHUB_ENV
+#          # Extract only the latest release notes
+#          $latest_notes = $release_notes -split '\n' | Select-String -Pattern "# $version" -Context 0,1000 | ForEach-Object { $_.Line; $_.Context.PostContext } | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+#          echo "release_notes=$($latest_notes -join "`n`")" >> $env:GITHUB_ENV
+#        env:
+#         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#
+#  release:
+#    needs: build
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout code
+#        uses: actions/checkout@v2
+#
+#      - name: Download Artifacts
+#        uses: actions/download-artifact@v2
+#        with:
+#          name: electron-app-${{ matrix.os }}
+#          path: dist/
+#
+#      - name: Create GitHub Release in Target Repository
+#        id: create_release
+#        uses: actions/create-release@v1
+#        env:
+#          GITHUB_TOKEN: ${{ env.TARGET_REPO_PAT }}
+#        with:
+#          owner: target-owner
+#          repo: target-repo
+#          tag_name: ${{ env.version }}
+#          release_name: Release ${{ env.version }}
+#          body: ${{ env.release_notes }}
+#          draft: false
+#          prerelease: false
+#
+#      - name: Upload Release Assets to Target Repository
+#        env:
+#          GITHUB_TOKEN: ${{ env.TARGET_REPO_PAT }}
+#        run: |
+#          for file in dist/*; do
+#            if [[ "$file" == *.exe || "$file" == *.dmg ]]; then
+#              curl \
+#                -X POST \
+#                -H "Authorization: token ${{ env.TARGET_REPO_PAT }}" \
+#                -H "Content-Type: application/octet-stream" \
+#                --data-binary @"$file" \
+#                "https://uploads.github.com/repos/target-owner/target-repo/releases/${{ steps.create_release.outputs.id }}/assets?name=$(basename "$file")"
+#            fi
+#          done

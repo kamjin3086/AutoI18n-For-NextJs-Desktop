@@ -1,0 +1,109 @@
+diff --git a/node_modules/trucker/lib/cli2.d.ts b/node_modules/trucker/lib/cli2.d.ts
+new file mode 100644
+index 0000000..790ced5
+--- /dev/null
++++ b/node_modules/trucker/lib/cli2.d.ts
+@@ -0,0 +1,2 @@
++declare const cli2: () => never;
++export default cli2;
+diff --git a/node_modules/trucker/lib/cli2.js b/node_modules/trucker/lib/cli2.js
+new file mode 100644
+index 0000000..4c319ba
+--- /dev/null
++++ b/node_modules/trucker/lib/cli2.js
+@@ -0,0 +1,95 @@
++"use strict";
++var __importDefault = (this && this.__importDefault) || function (mod) {
++    return (mod && mod.__esModule) ? mod : { "default": mod };
++};
++Object.defineProperty(exports, "__esModule", { value: true });
++
++const optimist_1 = __importDefault(require("optimist"));
++const _1 = __importDefault(require("."));
++
++// 新的executeCommand函数，接受参数和工作目录
++function executeCommand(args, workingDir = process.cwd()) {
++    const originalCwd = process.cwd();
++    process.chdir(workingDir);  // 设置工作目录
++
++    try {
++        const result = _1.default(args);
++        return result;
++    } finally {
++        process.chdir(originalCwd);  // 恢复原始工作目录
++    }
++}
++
++const cli2 = () => {
++    const options = optimist_1.default
++        .usage(`Move CommonJS source files or directories without breaking your imports.\nSupports typescript, javascript and coffeescript files.
++
++Move files:
++trucker -m [sources...] destination
++
++Dry run (shows what moves would happen but doesn't do them):
++trucker -n [sources...] destination
++
++Print import information:
++trucker -i [sources...]
++`)
++        .boolean('v')
++        .alias('v', 'version')
++        .boolean('h')
++        .alias('h', 'help')
++        .describe('h', 'Show help')
++        .boolean('i')
++        .alias('i', 'info')
++        .describe('i', 'Print dependency information for a file or path')
++        .string('f')
++        .alias('f', 'format')
++        .describe('f', 'Set format for info output ("default" or "dot" for graphviz-compatible dot output)')
++        .boolean('u')
++        .alias('u', 'unused')
++        .describe('u', 'Find files that are not required from any other files')
++        .boolean('m')
++        .alias('m', 'move')
++        .describe('m', 'Move one or more source files while fixing up any changed require paths')
++        .boolean('n')
++        .alias('n', 'dry-run')
++        .describe('n', "Print out changes to be made but don't change anything (try this first!)")
++        .string('s')
++        .alias('s', 'scope')
++        .describe('s', 'Set top "scope" directory for scanning for dependencies (default: pwd)')
++        .string('p')
++        .alias('p', 'project')
++        .describe('p', 'Set tsconfig project location (typescript only)')
++        .string('q')
++        .alias('q', 'quiet')
++        .describe('q', 'Suppress output')
++        .string('e')
++        .alias('e', 'exclude')
++        .describe('e', 'Add file glob pattern to exclude (repeatable)');
++
++    const argv = options.argv, fileCount = argv._length, requiredFileCount = argv.i ? 1 : 2;
++    if (argv.v) {
++        // eslint-disable-next-line @typescript-eslint/no-var-requires
++        const version = require('../package.json').version;
++        console.log(`Trucker version ${version}`);
++        process.exit();
++    }
++    if (!(argv.h || argv.i || argv.m || argv.n || argv.u)) {
++        options.showHelp();
++        process.exit();
++    }
++    if (argv.exclude && typeof argv.exclude === 'string') {
++        argv.e = argv.exclude = [argv.exclude];
++    }
++    if (argv.h || fileCount < requiredFileCount) {
++        options.showHelp();
++        process.exit();
++    }
++
++    // 直接调用新的executeCommand函数
++    const result = executeCommand(argv);
++    console.log(result)
++    // process.exit(result);
++};
++
++exports.default = cli2;
++exports.executeCommand = executeCommand; // 导出新函数供外部调用

@@ -1,0 +1,56 @@
+directories:
+  output: dist
+  buildResources: buildResources
+
+files:
+  - packages/**/dist/**
+
+linux:
+  target: deb
+
+publish:
+  provider: generic
+  url: https://media.autoi18n.dev/releases/
+
+# 打包后调用hook
+afterPack: ./hookRemoveLocales.cjs
+
+appId: com.kamjin.autoi18n #appid 包名
+productName: AutoI18n For NextJs #安装程序的名字
+
+win:
+  executableName: AutoI18n For NextJs
+  target: nsis
+
+nsis:
+  perMachine: true #是否显示安装模式安装程序页面（选择每台机器或每用户）以供辅助安装程序使用。或者是否始终按所有用户（每台机器）进行安装。默认不需要显示，所以为true
+  deleteAppDataOnUninstall: true
+  oneClick: false # 是否一键安装
+  allowElevation: true # 允许请求提升。若为false，则用户必须使用提升的权限重新启动安装程序。
+  allowToChangeInstallationDirectory: true # 是否允许修改安装目录
+  createDesktopShortcut: true # 卸载时图标
+  createStartMenuShortcut: true #  是否创建开始菜单图标
+  runAfterFinish: false # 是否安装完成后运行
+  #  include: ../build/script/installer.nsh # 我这里放的是将应用程序默认安装在哪个路径
+  artifactName: ${name}-${version}-setup.${ext}
+  uninstallDisplayName: ${productName}
+#  installerIcon: ./build/icon.ico #  安装时图标
+#  uninstallerIcon: ./build/icon.ico
+
+mac:
+  target: dmg
+  category: public.app-category.developer-tools
+
+dmg:
+  artifactName: ${name}-${version}.${ext}
+  iconSize: 80
+  contents:
+    - { "x": 130,"y": 220 }
+    - { "x": 410,"y": 220,"type": "link","path": "/Applications" }
+  window:
+    width: 540
+    height: 380
+
+releaseInfo:
+  releaseName: ${productName}-${version}
+  releaseNotesFile: ./release-notes_en.md
